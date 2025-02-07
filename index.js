@@ -1,7 +1,10 @@
 const express = require('express');
 const db = require('./firebase-config'); // Import Firestore config
+const cors = require("cors");
 
 const app = express();
+app.use(cors());
+
 const port = process.env.PORT || 3000;
 
 // Middleware để parse body request thành JSON
