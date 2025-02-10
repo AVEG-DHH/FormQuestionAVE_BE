@@ -1,6 +1,6 @@
 const express = require('express');
-const db = require('./firebase-config'); // Import Firestore config
 const cors = require("cors");
+const db = require('./firebase-config'); // Import Firestore config
 
 const app = express();
 
