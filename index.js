@@ -6,7 +6,9 @@ const app = express();
 
 const allowedOrigins = [
     "http://localhost:5173",
-    "https://form-question-ave.vercel.app"
+    "https://form-question-ave.vercel.app",
+    "https://naturalcleansingae.com/",
+    "https://www.naturalcleansingae.com/"
 ];
 
 app.use(cors({
