@@ -1,5 +1,8 @@
+require("dotenv").config();
 const express = require('express');
 const cors = require("cors");
+const axios = require('axios');
+
 const db = require('./firebase-config'); // Import Firestore config
 
 const app = express();
@@ -24,7 +27,7 @@ app.use(cors({
     credentials: true
 }));
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 // Middleware để parse body request thành JSON
 app.use(express.json());
@@ -47,6 +50,30 @@ app.post('/api/save-firestore-not-complete', async (req, res) => {
         return res.status(500).json({ message: 'Error saving data to Firestore' });
     }
 });
+
+// Endpoint proxy để gọi API của LarkSuite
+app.post("/api/lark-data", async (req, res) => {
+    try {
+        const response = await axios.post(
+            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_ID}/tables/${process.env.LARK_TABLE_ID}/records`,
+            { fields: req.body.fields },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer t-g2062d9mUAGOGI2WOG7HGEI2YJX64RW4PZDY3NFO`
+                }
+            }
+        );
+
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        res.status(error.response?.status || 500).json({
+            message: "Error calling Lark API",
+            error: error.response?.data || error.message
+        });
+    }
+});
+
 
 // Start server
 app.listen(port, () => {
