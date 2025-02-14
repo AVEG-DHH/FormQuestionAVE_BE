@@ -2,8 +2,10 @@ require("dotenv").config();
 const express = require('express');
 const cors = require("cors");
 const axios = require('axios');
+const db = require('./firebase-config');
 
-const db = require('./firebase-config'); // Import Firestore config
+const port = process.env.PORT || 5000;
+let LARK_ACCESS_TOKEN = ""; // Lưu token toàn cục
 
 const app = express();
 
@@ -27,7 +29,6 @@ app.use(cors({
     credentials: true
 }));
 
-const port = process.env.PORT || 5000;
 
 // Middleware để parse body request thành JSON
 app.use(express.json());
@@ -51,20 +52,29 @@ app.post('/api/save-firestore-not-complete', async (req, res) => {
     }
 });
 
-// Endpoint proxy để gọi API của LarkSuite
+async function fetchLarkToken() {
+    try {
+        const response = await axios.post(process.env.LARK_URL_GET_TOKEN, {
+            app_id: process.env.LARK_APP_ID,
+            app_secret: process.env.LARK_APP_SECRET
+        });
+
+        LARK_ACCESS_TOKEN = response.data.tenant_access_token;
+    } catch (error) {
+        console.error("Lỗi lấy token:", error.response?.data || error.message);
+    }
+}
+
+// 📌 Gọi token ngay khi server khởi động & tự động làm mới mỗi 1h50 phút
+(async function startTokenRefresh() {
+    await fetchLarkToken();
+    setInterval(fetchLarkToken, 1000 * 60 * 110); // 110 phút (1h50 phút)
+})();
+
+// 📌 API proxy để gọi Lark API
 app.post("/api/lark-data", async (req, res) => {
     try {
-        const response = await axios.post(
-            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_ID}/tables/${process.env.LARK_TABLE_ID}/records`,
-            { fields: req.body.fields },
-            {
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer t-g2062d9mUAGOGI2WOG7HGEI2YJX64RW4PZDY3NFO`
-                }
-            }
-        );
-
+        const response = await sendLarkRequest(req.body.fields);
         res.status(response.status).json(response.data);
     } catch (error) {
         res.status(error.response?.status || 500).json({
@@ -74,6 +84,28 @@ app.post("/api/lark-data", async (req, res) => {
     }
 });
 
+// 📌 Hàm gửi request tới Lark, tự động cập nhật token nếu hết hạn
+async function sendLarkRequest(fields) {
+    try {
+        return await axios.post(
+            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID}/records`,
+            { fields },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${LARK_ACCESS_TOKEN}`
+                }
+            }
+        );
+    } catch (error) {
+        // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
+        if (error.response?.data?.code === 99991663) {
+            await fetchLarkToken();
+            return sendLarkRequest(fields); // Gọi lại request sau khi có token mới
+        }
+        throw error;
+    }
+}
 
 // Start server
 app.listen(port, () => {
