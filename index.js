@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require('express');
 const cors = require("cors");
 const axios = require('axios');
-const db = require('./firebase-config');
+// const db = require('./firebase-config');
 
 const port = process.env.PORT || 5000;
 let LARK_ACCESS_TOKEN = ""; // Lưu token toàn cục
@@ -34,23 +34,23 @@ app.use(cors({
 app.use(express.json());
 
 // API để lưu dữ liệu vào Firestore
-app.post('/api/save-firestore-not-complete', async (req, res) => {
-    try {
-        const { userId, customerData } = req.body;
+// app.post('/api/save-firestore-not-complete', async (req, res) => {
+//     try {
+//         const { userId, customerData } = req.body;
 
-        if (!userId || !customerData) {
-            return res.status(400).json({ message: 'Missing userId or customerData' });
-        }
+//         if (!userId || !customerData) {
+//             return res.status(400).json({ message: 'Missing userId or customerData' });
+//         }
 
-        // Lưu dữ liệu vào Firestore
-        await db.collection('customer-answer-not-complete').doc(userId).set(customerData);
+//         // Lưu dữ liệu vào Firestore
+//         await db.collection('customer-answer-not-complete').doc(userId).set(customerData);
 
-        return res.status(200).json({ message: 'Data saved successfully' });
-    } catch (error) {
-        console.error('Error saving data to Firestore:', error);
-        return res.status(500).json({ message: 'Error saving data to Firestore' });
-    }
-});
+//         return res.status(200).json({ message: 'Data saved successfully' });
+//     } catch (error) {
+//         console.error('Error saving data to Firestore:', error);
+//         return res.status(500).json({ message: 'Error saving data to Firestore' });
+//     }
+// });
 
 async function fetchLarkToken() {
     try {
@@ -89,6 +89,41 @@ async function sendLarkRequest(fields) {
     try {
         return await axios.post(
             `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID}/records`,
+            { fields },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${LARK_ACCESS_TOKEN}`
+                }
+            }
+        );
+    } catch (error) {
+        // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
+        if (error.response?.data?.code === 99991663) {
+            await fetchLarkToken();
+            return sendLarkRequest(fields); // Gọi lại request sau khi có token mới
+        }
+        throw error;
+    }
+}
+
+app.post("/api/lark-data-not-complete", async (req, res) => {
+    try {
+        const response = await sendLarkRequestNotComplete(req.body.fields);
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        res.status(error.response?.status || 500).json({
+            message: "Error calling Lark API",
+            error: error.response?.data || error.message
+        });
+    }
+});
+
+// 📌 Hàm gửi request tới Lark, tự động cập nhật token nếu hết hạn
+async function sendLarkRequestNotComplete(fields) {
+    try {
+        return await axios.post(
+            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID_NOT_COMPLETE}/records`,
             { fields },
             {
                 headers: {
