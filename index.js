@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require('express');
 const cors = require("cors");
 const axios = require('axios');
-// const db = require('./firebase-config');
 
 const port = process.env.PORT || 5000;
 let LARK_ACCESS_TOKEN = ""; // Lưu token toàn cục
@@ -161,10 +160,9 @@ const checkCustomerExistsInLarkBase = async (customerId) => {
         return customerExists;  // Trả về true nếu tồn tại, false nếu không
     } catch (error) {
         console.error('❌ Lỗi khi kiểm tra khách hàng tồn tại:', error.response?.data || error.message);
-        return false;  // Mặc định là không tồn tại nếu có lỗi
+        return true;  // Mặc định là không tồn tại nếu có lỗi
     }
 };
-
 
 const formatCustomersForLarkBase = (customer) => {
     return {
@@ -218,7 +216,6 @@ const syncToLarkBase = async (customers) => {
     }
 };
 
-
 // 🚀 Chạy hàm đồng bộ mỗi 24 giờ
 const syncCustomersEvery24Hours = () => {
     // Tạo một interval để gọi hàm đồng bộ mỗi 24 giờ (24 * 60 * 60 * 1000 milliseconds)
@@ -227,12 +224,112 @@ const syncCustomersEvery24Hours = () => {
         const customers = await getCustomers();  // Lấy danh sách khách hàng từ Shopify
         await syncToLarkBase(customers);  // Đồng bộ với LarkBase
         console.log('✅ Đồng bộ hoàn thành!');
-    },  24 * 60 * 60 * 1000);  // 24 giờ = 24 * 60 * 60 * 1000 milliseconds
+    }, 24 * 60 * 60 * 1000);  // 24 giờ = 24 * 60 * 60 * 1000 milliseconds
 };
 
 // Gọi hàm để bắt đầu đồng bộ tự động
 syncCustomersEvery24Hours();
 
+
+// 📌 Đồng bộ sản phẩm
+const shopifyAPIProduct = `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/products.json`;
+const LARK_API_PRODUCT = `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID_PRODUCTS}/records`;
+
+const getProducts = async () => {
+    try {
+        const response = await axios.get(shopifyAPIProduct, {
+            headers: {
+                'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+                'Content-Type': 'application/json',
+            },
+        });
+        return response.data.products;
+    } catch (error) {
+        console.error('Lỗi khi gọi Shopify API:', error.response?.data || error.message);
+    }
+};
+
+const checkProductExistsInLarkBase = async (products_id) => {
+    try {
+        // Lấy tất cả các records trong bảng LarkBase
+        const response = await axios.get(
+            `${LARK_API_PRODUCT}`,  // Cập nhật với đường dẫn lấy dữ liệu
+            {
+                headers: {
+                    Authorization: `Bearer ${LARK_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        const customerExists = response.data.data.items.some((record) => {
+            return record.fields.products_id === products_id
+        });
+
+        return customerExists;  // Trả về true nếu tồn tại, false nếu không
+    } catch (error) {
+        console.error('❌ Lỗi khi kiểm tra sản phẩm tồn tại:', error.response?.data || error.message);
+        return true;  // Mặc định là không tồn tại nếu có lỗi
+    }
+};
+
+const formatProductsForLarkBase = (product) => {
+    return {
+        "products_id": product.id.toString(),
+        "title": product.title || "",
+        "status": product.status || "",
+        "created_at": product.created_at || "",
+    };
+};
+
+const syncToLarkBaseProduct = async (products) => {
+    if (!products.length) {
+        console.log('⚠️ Không có sản phẩm nào để đồng bộ.');
+        return;
+    }
+
+    try {
+        for (let product of products) {
+            let formattedData = formatProductsForLarkBase(product);
+            // Kiểm tra xem khách hàng đã tồn tại trong LarkBase chưa
+            const exists = await checkProductExistsInLarkBase(formattedData.products_id);
+            if (exists) {
+                console.log(`🔍 Sản phẩm với ID ${formattedData.products_id} đã tồn tại trong LarkBase. Không thêm mới.`);
+                continue;
+            }
+
+            await axios.post(
+                LARK_API_PRODUCT,
+                { fields: formattedData },  // Đảm bảo sử dụng 'records'
+                {
+                    headers: {
+                        Authorization: `Bearer ${LARK_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+        }
+    } catch (error) {
+        console.error('❌ Lỗi khi đồng bộ với LarkBase:', error.response?.data || error.message);
+        if (error.response?.data?.error?.field_violations) {
+            console.error('Lỗi chi tiết trường:', error.response.data.error.field_violations);
+        }
+    }
+};
+
+// 🚀 Chạy hàm đồng bộ mỗi 24 giờ
+const syncProductsEvery24Hours = () => {
+    // Tạo một interval để gọi hàm đồng bộ mỗi 24 giờ (24 * 60 * 60 * 1000 milliseconds)
+    setInterval(async () => {
+        console.log('🚀 Bắt đầu đồng bộ sản phẩm...');
+        const products = await getProducts();
+        await syncToLarkBaseProduct(products);
+        console.log('✅ Đồng bộ hoàn thành!');
+    }, 24 * 60 * 60 * 1000);  // 24 giờ = 24 * 60 * 60 * 1000 milliseconds
+};
+
+// Gọi hàm để bắt đầu đồng bộ tự động
+syncProductsEvery24Hours();
 
 // Start server
 app.listen(port, () => {
