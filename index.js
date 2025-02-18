@@ -79,7 +79,7 @@ async function sendLarkRequest(fields) {
         );
     } catch (error) {
         // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
-        if (error.response?.data?.code === 99991663) {
+        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
             await fetchLarkToken();
             return sendLarkRequest(fields); // Gọi lại request sau khi có token mới
         }
@@ -114,7 +114,7 @@ async function sendLarkRequestNotComplete(fields) {
         );
     } catch (error) {
         // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
-        if (error.response?.data?.code === 99991663) {
+        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
             await fetchLarkToken();
             return sendLarkRequest(fields); // Gọi lại request sau khi có token mới
         }
@@ -330,6 +330,121 @@ const syncProductsEvery24Hours = () => {
 
 // Gọi hàm để bắt đầu đồng bộ tự động
 syncProductsEvery24Hours();
+
+// 📌 Đồng bộ sản phẩm
+const shopifyAPIOrder = `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/orders.json`;
+const LARK_API_ORDER = `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID_ORDERS}/records`;
+
+const getOrders = async () => {
+    try {
+        const response = await axios.get(shopifyAPIOrder, {
+            headers: {
+                'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+                'Content-Type': 'application/json',
+            },
+        });
+        return response.data.orders;
+    } catch (error) {
+        console.error('Lỗi khi gọi Shopify API:', error.response?.data || error.message);
+    }
+};
+
+const checkOrderExistsInLarkBase = async (order_id) => {
+    try {
+        // Lấy tất cả các records trong bảng LarkBase
+        const response = await axios.get(
+            `${LARK_API_ORDER}`,  // Cập nhật với đường dẫn lấy dữ liệu
+            {
+                headers: {
+                    Authorization: `Bearer ${LARK_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+        console.log(response.data.data);
+
+        const customerExists = response.data.data.items.some((record) => {
+            return record.fields.order_id === order_id
+        });
+
+        return customerExists;  // Trả về true nếu tồn tại, false nếu không
+    } catch (error) {
+        console.error('❌ Lỗi khi kiểm tra sản phẩm tồn tại:', error.response?.data || error.message);
+        return true;  // Mặc định là không tồn tại nếu có lỗi
+    }
+};
+
+const formatOrdersForLarkBase = (order) => {
+    return {
+        "order_id": order.id.toString(),
+        "first_name": order.customer.first_name || "",
+        "last_name": order.customer.last_name || "",
+        "phone": order.customer.phone || "",
+        "customer_locale": order.customer_locale || "",
+        "contact_email": order.contact_email || "",
+        "checkout_id": order.checkout_id.toString() || "",
+        "checkout_token": order.checkout_token || "",
+        "confirmation_number": order.confirmation_number || "",
+        "code": order.discount_codes ? order.discount_codes[0].code || "" : "",
+        "name_item": order.line_items[0].name || "",
+        "price_item": order.line_items[0].price || "",
+        "quantity_item": order.line_items[0].quantity || "",
+        "created_at": order.created_at || "",
+    };
+};
+
+const syncToLarkBaseOrder = async (orders) => {
+    if (!orders.length) {
+        console.log('⚠️ Không có đơn hàng nào để đồng bộ.');
+        return;
+    }
+
+    try {
+        for (let order of orders) {
+            let formattedData = formatOrdersForLarkBase(order);
+            // Kiểm tra xem khách hàng đã tồn tại trong LarkBase chưa
+            // const exists = await checkOrderExistsInLarkBase(formattedData.order_id);
+            // if (exists) {
+            //     console.log(`🔍 Đơn hàng với ID ${formattedData.order_id} đã tồn tại trong LarkBase. Không thêm mới.`);
+            //     continue;
+            // }
+            console.log(formattedData);
+            await axios.post(
+                LARK_API_ORDER,
+                { fields: formattedData },  // Đảm bảo sử dụng 'records'
+                {
+                    headers: {
+                        Authorization: `Bearer ${LARK_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+        }
+    } catch (error) {
+        console.error('❌ Lỗi khi đồng bộ với LarkBase:', error.response?.data || error.message);
+        if (error.response?.data?.error?.field_violations) {
+            console.error('Lỗi chi tiết trường:', error.response.data.error.field_violations);
+        }
+    }
+};
+
+// 🚀 Chạy hàm đồng bộ mỗi 24 giờ
+const syncOrdersEvery24Hours = async () => {
+    // Tạo một interval để gọi hàm đồng bộ mỗi 24 giờ (24 * 60 * 60 * 1000 milliseconds)
+    await fetchLarkToken();
+    const orders = await getOrders();
+    await syncToLarkBaseOrder(orders);
+
+    // setInterval(async () => {
+    //     console.log('🚀 Bắt đầu đồng bộ sản phẩm...');
+    //     const orders = await getOrders();
+    //     await syncToLarkBaseOrder(orders);
+    //     console.log('✅ Đồng bộ hoàn thành!');
+    // }, 6000);  // 24 giờ = 24 * 60 * 60 * 1000 milliseconds
+};
+
+// Gọi hàm để bắt đầu đồng bộ tự động
+syncOrdersEvery24Hours();
 
 // Start server
 app.listen(port, () => {
