@@ -131,19 +131,14 @@ let totalOrdersList = 0;
 let pageNum = 1;
 let pageSize = 200;
 let ordersListPrimary = [];
-let fmCurrentDate = "";
+let ordersListNew = [];
+let ordersListUpdate = [];
 
 const convertDateAPI = (date) => {
     return date.toLocaleString().substring(0, 10)
 };
 
 const backupDataCJ = () => {
-    let currentDate = new Date();
-    currentDate.setDate(currentDate.getDate() - 1);
-    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-    const day = currentDate.getDate().toString().padStart(2, '0');
-    const year = currentDate.getFullYear();
-    fmCurrentDate = `${year}-${month}-${day}`;
     console.log("Now time update!");
 
     getOrderList();
@@ -157,10 +152,7 @@ const pushDataInArr = async (arrData) => {
     const dataAPI = arrData.list;
     if (dataAPI.length > 0) {
         for (var i = 0; i < dataAPI.length; i++) {
-            let checkDate = dataAPI[i].createDate ? convertDateAPI(dataAPI[i].createDate) : "";
-            if (checkDate == fmCurrentDate) {
-                ordersListPrimary.push(dataAPI[i]);
-            }
+            ordersListPrimary.push(dataAPI[i]);
         }
     }
 };
@@ -202,7 +194,75 @@ const callAPIGetOrdersList = async (pageNumNew) => {
     }
 };
 
+const LARK_API_CJ_ORDER = `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN_CJ_BASECOST}/tables/${process.env.LARK_TABLE_ID_CJ_BASECOST_ORDER}/records`;
+const getDataLarkBase = async () => {
+    let allDataLB = [];
+    let pageToken = "" || null;
+
+    try {
+        do {
+            const response = await axios.get(
+                `${LARK_API_CJ_ORDER}`,  // Cập nhật với đường dẫn lấy dữ liệu
+                {
+                    headers: {
+                        Authorization: `Bearer ${LARK_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                    params: {
+                        "page_token": pageToken
+                    }
+                }
+            );
+
+            allDataLB.push(...response.data.data.items);
+            pageToken = response.data?.data?.page_token || null;
+        } while (pageToken)
+
+        return allDataLB;
+    } catch (error) {
+        // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
+        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
+            await fetchLarkToken();
+            return getDataLarkBase();
+        }
+        throw error;
+    }
+};
+
+const getDataNewUpdateCJ = async (arrCJ, arrLB) => {
+
+    for (let i = 0; i < arrCJ.length; i++) {
+        let dataCJ = arrCJ[i];
+
+        for (let j = 0; j < arrLB.length; j++) {
+            let dataLB = arrLB[j];
+
+            if (dataLB.fields.orderId == dataCJ.orderId) {
+                let keysToCheck = [
+                    "orderNum", "cjOrderId", "shippingCountryCode", "shippingProvince",
+                    "shippingCity", "shippingPhone", "shippingAddress", "shippingCustomerName",
+                    "remark", "orderWeight", "orderStatus", "orderAmount", "productAmount",
+                    "postageAmount", "logisticName", "trackNumber", "createDate", "paymentDate"
+                ];
+
+                let hasChanged = keysToCheck.some(key => String(dataLB.fields[key] || "") !== String(dataCJ[key] || ""));
+
+                if (hasChanged) {
+                    ordersListUpdate.push(dataCJ);
+                };
+                break;
+            };
+
+            if (j == arrLB.length - 1) {
+                ordersListNew.push(dataCJ);
+            }
+        };
+    };
+};
+
 const getOrderList = async () => {
+    let arrLarkBaseData = await getDataLarkBase();
+
     totalOrdersList = await getTotalOrderList();
     pageNum = totalOrdersList % pageSize == 0 ? Math.floor(totalOrdersList / pageSize) : Math.floor(totalOrdersList / pageSize) + 1;
 
@@ -210,8 +270,11 @@ const getOrderList = async () => {
         await callAPIGetOrdersList(i);
     }
 
-    for (var j = 0; j < ordersListPrimary.length; j++) {
-        let data = ordersListPrimary[j];
+    await getDataNewUpdateCJ(ordersListPrimary, arrLarkBaseData);
+
+    // Add record data New
+    for (var j = 0; j < ordersListNew.length; j++) {
+        let data = ordersListNew[j];
         await sendLarkOrders(formatDataCJOrder(data));
     }
 };
