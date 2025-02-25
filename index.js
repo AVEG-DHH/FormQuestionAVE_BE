@@ -46,12 +46,6 @@ async function fetchLarkToken() {
     }
 }
 
-// 📌 Gọi token ngay khi server khởi động & tự động làm mới mỗi 1h50 phút
-(async function startTokenRefresh() {
-    await fetchLarkToken();
-    setInterval(fetchLarkToken, 1000 * 60 * 110); // 110 phút (1h50 phút)
-})();
-
 // 📌 API proxy để gọi Lark API
 app.post("/api/lark-data", async (req, res) => {
     try {
@@ -140,9 +134,22 @@ const backupDataCJ = async () => {
     await getOrderList();
 }
 
-cron.schedule("5 16 * * *", backupDataCJ, {
+cron.schedule("15 0 * * *", backupDataCJ, {
     timezone: "Asia/Ho_Chi_Minh",
 });
+
+const refreshCJToken = async ()=>{
+    try {
+        const response = await axios.post(process.env.CJ_URL_GET_TOKEN, {
+            email: process.env.CJ_EMAIL,
+            password: process.env.CJ_PASSWORD
+        });
+
+        CJ_TOKEN = response.data.data.accessToken;
+    } catch (error) {
+        console.error("Lỗi lấy token:", error.response?.data || error.message);
+    }
+};
 
 const pushDataInArr = async (arrData) => {
     const dataAPI = arrData.list;
@@ -168,6 +175,14 @@ const getTotalOrderList = async () => {
         return response.data.data.total;
     } catch (error) {
         console.error('Lỗi khi gọi Shopify API:', error.response?.data || error.message);
+        if (error.response?.status === 401 || error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
+            console.log('Token hết hạn, đang lấy token mới...');
+
+            await refreshCJToken(); // Gọi hàm để lấy token mới
+            return getTotalOrderList(); // Gọi lại request sau khi có token mới
+        }
+
+        throw error;
     }
 };
 
@@ -185,6 +200,14 @@ const callAPIGetOrdersList = async (pageNumNew) => {
         await pushDataInArr(response.data.data);
     } catch (error) {
         console.error('Lỗi khi gọi Shopify API:', error.response?.data || error.message);
+        if (error.response?.status === 401 || error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
+            console.log('Token hết hạn, đang lấy token mới...');
+
+            await refreshCJToken(); // Gọi hàm để lấy token mới
+            return getTotalOrderList(); // Gọi lại request sau khi có token mới
+        }
+
+        throw error;
     }
 };
 
