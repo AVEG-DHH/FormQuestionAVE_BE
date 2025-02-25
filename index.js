@@ -5,7 +5,7 @@ const axios = require('axios');
 const cron = require("node-cron");
 
 const port = process.env.PORT || 5000;
-let LARK_ACCESS_TOKEN = ""; // Lưu token toàn cục
+let LARK_ACCESS_TOKEN = "t-g2062ocbLXY5RKU2XQHZLOM453LBBUWZ7KHMQZIR"; // Lưu token toàn cục
 
 const app = express();
 
@@ -134,19 +134,28 @@ let ordersListPrimary = [];
 let ordersListNew = [];
 let ordersListUpdate = [];
 
-const convertDateAPI = (date) => {
-    return date.toLocaleString().substring(0, 10)
+// cron.schedule("7 10 * * *", backupDataCJ, {
+//     timezone: "Asia/Ho_Chi_Minh",
+// });
+
+module.exports = async (req, res) => {
+    if (req.url === "/api/backupCJ" && req.method === "GET") {
+        try {
+            await backupDataCJ();
+            return res.status(200).json({ message: "Backup completed successfully!" });
+        } catch (error) {
+            return res.status(500).json({ message: "Backup failed!", error: error.message });
+        }
+    }
+    return res.status(404).json({ message: "Not Found" });
 };
 
-const backupDataCJ = () => {
+const backupDataCJ = async () => {
     console.log("Now time update!");
 
-    getOrderList();
+    await getOrderList();
 }
 
-cron.schedule("15 0 * * *", backupDataCJ, {
-    timezone: "Asia/Ho_Chi_Minh",
-});
 
 const pushDataInArr = async (arrData) => {
     const dataAPI = arrData.list;
@@ -214,7 +223,7 @@ const getDataLarkBase = async () => {
                 }
             );
 
-            allDataLB.push(...response.data.data.items);
+            allDataLB.push(...response.data?.data?.items);
             pageToken = response.data?.data?.page_token || null;
         } while (pageToken)
 
@@ -248,7 +257,7 @@ const getDataNewUpdateCJ = async (arrCJ, arrLB) => {
                 let hasChanged = keysToCheck.some(key => String(dataLB.fields[key] || "") !== String(dataCJ[key] || ""));
 
                 if (hasChanged) {
-                    ordersListUpdate.push(dataCJ);
+                    ordersListUpdate.push({ ...dataCJ, record_id: dataLB.record_id });
                 };
                 break;
             };
@@ -273,11 +282,27 @@ const getOrderList = async () => {
     await getDataNewUpdateCJ(ordersListPrimary, arrLarkBaseData);
 
     // Add record data New
-    for (var j = 0; j < ordersListNew.length; j++) {
-        let data = ordersListNew[j];
-        await sendLarkOrders(formatDataCJOrder(data));
+    console.log(ordersListNew.length);
+    if (ordersListNew.length > 0) {
+        for (var j = 0; j < ordersListNew.length; j++) {
+            console.log("New: ...", j);
+            let data = ordersListNew[j];
+            await sendLarkOrders(formatDataCJOrder(data));
+        }
+    }
+
+    // Update record data
+    console.log(ordersListUpdate.length);
+    if (ordersListUpdate.length > 0) {
+        for (var k = 0; k < ordersListUpdate.length; k++) {
+            console.log("Update: ...", k);
+            let data = ordersListUpdate[k];
+            await updateDataLarkOrders(formatDataCJOrderUpdate(data));
+        }
     }
 };
+
+getOrderList();
 
 const formatDataCJOrder = (data) => {
     return {
@@ -321,6 +346,56 @@ const sendLarkOrders = async (fields) => {
         if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
             await fetchLarkToken();
             return sendLarkOrders(fields); // Gọi lại request sau khi có token mới
+        }
+        throw error;
+    }
+};
+
+const formatDataCJOrderUpdate = (data) => {
+    return {
+        record_id: data.record_id ? data.record_id : "",
+        dataFields: {
+            orderId: data.orderId ? data.orderId : "",
+            orderNum: data.orderNum ? data.orderNum : "",
+            cjOrderId: data.cjOrderId ? data.cjOrderId : "",
+            shippingCountryCode: data.shippingCountryCode ? data.shippingCountryCode : "",
+            shippingProvince: data.shippingProvince ? data.shippingProvince : "",
+            shippingCity: data.shippingCity ? data.shippingCity : "",
+            shippingPhone: data.shippingPhone ? data.shippingPhone : "",
+            shippingAddress: data.shippingAddress ? data.shippingAddress : "",
+            shippingCustomerName: data.shippingCustomerName ? data.shippingCustomerName : "",
+            remark: data.remark ? data.remark : "",
+            orderWeight: data.orderWeight ? data.orderWeight : 0,
+            orderStatus: data.orderStatus ? data.orderStatus : "",
+            orderAmount: data.orderAmount ? data.orderAmount : 0,
+            productAmount: data.productAmount ? data.productAmount : 0,
+            postageAmount: data.postageAmount ? data.postageAmount : 0,
+            logisticName: data.logisticName ? data.logisticName : "",
+            trackNumber: data.trackNumber ? data.trackNumber : "",
+            createDate: data.createDate ? data.createDate : "",
+            paymentDate: data.paymentDate ? data.paymentDate : ""
+        }
+    }
+}
+
+const updateDataLarkOrders = async (fields) => {
+    try {
+        return await axios.put(
+            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN_CJ_BASECOST}/tables/${process.env.LARK_TABLE_ID_CJ_BASECOST_ORDER}/records/${fields.record_id}`,
+            { fields: fields.dataFields },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${LARK_ACCESS_TOKEN}`
+                }
+            }
+        );
+    } catch (error) {
+        console.log(error);
+        // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
+        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
+            await fetchLarkToken();
+            return updateDataLarkOrders(fields); // Gọi lại request sau khi có token mới
         }
         throw error;
     }
