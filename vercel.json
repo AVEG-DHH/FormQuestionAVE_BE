@@ -11,11 +11,5 @@
             "src": "/api/(.*)",
             "dest": "/index.js"
         }
-    ],
-    "crons": [
-        {
-            "path": "/api/backupCJ",
-            "schedule": "24 15 * * *"
-        }
     ]
 }

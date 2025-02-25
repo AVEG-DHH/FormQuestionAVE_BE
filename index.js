@@ -134,25 +134,15 @@ let ordersListPrimary = [];
 let ordersListNew = [];
 let ordersListUpdate = [];
 
-// cron.schedule("7 10 * * *", backupDataCJ, {
-//     timezone: "Asia/Ho_Chi_Minh",
-// });
-
-// app.get("/api/backupCJ", async (req, res) => {
-//     try {
-//         await backupDataCJ();
-//         res.status(200).json({ message: "Backup completed successfully!" });
-//     } catch (error) {
-//         res.status(500).json({ message: "Backup failed!", error: error.message });
-//     }
-// });
-
 const backupDataCJ = async () => {
     console.log("Now time update!");
 
     await getOrderList();
 }
 
+cron.schedule("5 16 * * *", backupDataCJ, {
+    timezone: "Asia/Ho_Chi_Minh",
+});
 
 const pushDataInArr = async (arrData) => {
     const dataAPI = arrData.list;
@@ -193,8 +183,6 @@ const callAPIGetOrdersList = async (pageNumNew) => {
             }
         });
         await pushDataInArr(response.data.data);
-
-        // return response.data.data;
     } catch (error) {
         console.error('Lỗi khi gọi Shopify API:', error.response?.data || error.message);
     }
@@ -276,32 +264,28 @@ const getOrderList = async () => {
         await callAPIGetOrdersList(i);
     }
 
-    console.log(279)
-
     await getDataNewUpdateCJ(ordersListPrimary, arrLarkBaseData);
 
     // Add record data New
     console.log(ordersListNew.length);
-    // if (ordersListNew.length > 0) {
-    //     for (var j = 0; j < ordersListNew.length; j++) {
-    //         console.log("New: ...", j);
-    //         let data = ordersListNew[j];
-    //         await sendLarkOrders(formatDataCJOrder(data));
-    //     }
-    // }
+    if (ordersListNew.length > 0) {
+        for (var j = 0; j < ordersListNew.length; j++) {
+            console.log("New: ...", j);
+            let data = ordersListNew[j];
+            await sendLarkOrders(formatDataCJOrder(data));
+        }
+    }
 
     // Update record data
     console.log(ordersListUpdate.length);
-    // if (ordersListUpdate.length > 0) {
-    //     for (var k = 0; k < ordersListUpdate.length; k++) {
-    //         console.log("Update: ...", k);
-    //         let data = ordersListUpdate[k];
-    //         await updateDataLarkOrders(formatDataCJOrderUpdate(data));
-    //     }
-    // }
+    if (ordersListUpdate.length > 0) {
+        for (var k = 0; k < ordersListUpdate.length; k++) {
+            console.log("Update: ...", k);
+            let data = ordersListUpdate[k];
+            await updateDataLarkOrders(formatDataCJOrderUpdate(data));
+        }
+    }
 };
-
-// getOrderList();
 
 const formatDataCJOrder = (data) => {
     return {
