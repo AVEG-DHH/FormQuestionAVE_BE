@@ -138,17 +138,14 @@ let ordersListUpdate = [];
 //     timezone: "Asia/Ho_Chi_Minh",
 // });
 
-module.exports = async (req, res) => {
-    if (req.url === "/api/backupCJ" && req.method === "GET") {
-        try {
-            await backupDataCJ();
-            return res.status(200).json({ message: "Backup completed successfully!" });
-        } catch (error) {
-            return res.status(500).json({ message: "Backup failed!", error: error.message });
-        }
+app.get("/api/backupCJ", async (req, res) => {
+    try {
+        await backupDataCJ();
+        res.status(200).json({ message: "Backup completed successfully!" });
+    } catch (error) {
+        res.status(500).json({ message: "Backup failed!", error: error.message });
     }
-    return res.status(404).json({ message: "Not Found" });
-};
+});
 
 const backupDataCJ = async () => {
     console.log("Now time update!");
@@ -293,16 +290,16 @@ const getOrderList = async () => {
 
     // Update record data
     console.log(ordersListUpdate.length);
-    if (ordersListUpdate.length > 0) {
-        for (var k = 0; k < ordersListUpdate.length; k++) {
-            console.log("Update: ...", k);
-            let data = ordersListUpdate[k];
-            await updateDataLarkOrders(formatDataCJOrderUpdate(data));
-        }
-    }
+    // if (ordersListUpdate.length > 0) {
+    //     for (var k = 0; k < ordersListUpdate.length; k++) {
+    //         console.log("Update: ...", k);
+    //         let data = ordersListUpdate[k];
+    //         await updateDataLarkOrders(formatDataCJOrderUpdate(data));
+    //     }
+    // }
 };
 
-getOrderList();
+// getOrderList();
 
 const formatDataCJOrder = (data) => {
     return {
