@@ -15,7 +15,7 @@
     "crons": [
         {
             "path": "/api/backupCJ",
-            "schedule": "6 14 * * *"
+            "schedule": "17 14 * * *"
         }
     ]
 }
