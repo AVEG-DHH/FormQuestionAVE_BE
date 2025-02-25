@@ -138,14 +138,14 @@ let ordersListUpdate = [];
 //     timezone: "Asia/Ho_Chi_Minh",
 // });
 
-app.get("/api/backupCJ", async (req, res) => {
-    try {
-        await backupDataCJ();
-        res.status(200).json({ message: "Backup completed successfully!" });
-    } catch (error) {
-        res.status(500).json({ message: "Backup failed!", error: error.message });
-    }
-});
+// app.get("/api/backupCJ", async (req, res) => {
+//     try {
+//         await backupDataCJ();
+//         res.status(200).json({ message: "Backup completed successfully!" });
+//     } catch (error) {
+//         res.status(500).json({ message: "Backup failed!", error: error.message });
+//     }
+// });
 
 const backupDataCJ = async () => {
     console.log("Now time update!");
@@ -276,17 +276,19 @@ const getOrderList = async () => {
         await callAPIGetOrdersList(i);
     }
 
+    console.log(279)
+
     await getDataNewUpdateCJ(ordersListPrimary, arrLarkBaseData);
 
     // Add record data New
     console.log(ordersListNew.length);
-    if (ordersListNew.length > 0) {
-        for (var j = 0; j < ordersListNew.length; j++) {
-            console.log("New: ...", j);
-            let data = ordersListNew[j];
-            await sendLarkOrders(formatDataCJOrder(data));
-        }
-    }
+    // if (ordersListNew.length > 0) {
+    //     for (var j = 0; j < ordersListNew.length; j++) {
+    //         console.log("New: ...", j);
+    //         let data = ordersListNew[j];
+    //         await sendLarkOrders(formatDataCJOrder(data));
+    //     }
+    // }
 
     // Update record data
     console.log(ordersListUpdate.length);
