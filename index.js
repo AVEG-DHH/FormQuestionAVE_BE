@@ -1,8 +1,7 @@
 require("dotenv").config();
 
-
 const getOrderList = require('./src/functions/getOrderList');
-
+const refreshTokenLark = require('./src/tokens/refreshTokenLark');
 
 const express = require('express');
 const cors = require("cors");
@@ -10,7 +9,6 @@ const axios = require('axios');
 const cron = require("node-cron");
 
 const port = process.env.PORT || 5000;
-let LARK_ACCESS_TOKEN = "t-g2062ocbLXY5RKU2XQHZLOM453LBBUWZ7KHMQZIR"; // Lưu token toàn cục
 
 const app = express();
 
@@ -38,18 +36,7 @@ app.use(cors({
 // Middleware để parse body request thành JSON
 app.use(express.json());
 
-async function fetchLarkToken() {
-    try {
-        const response = await axios.post(process.env.LARK_URL_GET_TOKEN, {
-            app_id: process.env.LARK_APP_ID,
-            app_secret: process.env.LARK_APP_SECRET
-        });
-
-        LARK_ACCESS_TOKEN = response.data.tenant_access_token;
-    } catch (error) {
-        console.error("Lỗi lấy token:", error.response?.data || error.message);
-    }
-}
+let LARK_ACCESS_TOKEN = "t-g2062ocbLXY5RKU2XQHZLOM453LBBUWZ7KHMQZIR"; // Lưu token toàn cục
 
 // 📌 API proxy để gọi Lark API
 app.post("/api/lark-data", async (req, res) => {
@@ -79,8 +66,8 @@ async function sendLarkRequest(fields) {
         );
     } catch (error) {
         // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
-        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
-            await fetchLarkToken();
+        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661 || error.response?.data?.code === 99991668) {
+            LARK_ACCESS_TOKEN = await refreshTokenLark();
             return sendLarkRequest(fields); // Gọi lại request sau khi có token mới
         }
         throw error;
@@ -114,9 +101,9 @@ async function sendLarkRequestNotComplete(fields) {
         );
     } catch (error) {
         // 📌 Nếu token hết hạn (code: 99991663), lấy token mới rồi thử lại
-        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661) {
-            await fetchLarkToken();
-            return sendLarkRequest(fields); // Gọi lại request sau khi có token mới
+        if (error.response?.data?.code === 99991663 || error.response?.data?.code === 99991661 || error.response?.data?.code === 99991668) {
+            LARK_ACCESS_TOKEN = await refreshTokenLark();
+            return sendLarkRequestNotComplete(fields);
         }
         throw error;
     }
