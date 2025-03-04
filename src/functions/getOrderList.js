@@ -110,13 +110,39 @@ const getDataLarkBase = async () => {
     }
 };
 
-const getDataNewUpdateCJ = async (arrCJ, arrLB) => {
+const formatDataGetLarkBase = (data) => {
+    return {
+        fields: {
+            orderId: data.fields.orderId ? data.fields.orderId : "",
+            orderNum: data.fields.orderNum ? data.fields.orderNum : "",
+            cjOrderId: data.fields.cjOrderId ? data.fields.cjOrderId : "",
+            shippingCountryCode: data.fields.shippingCountryCode ? data.fields.shippingCountryCode : "",
+            shippingProvince: data.fields.shippingProvince ? data.fields.shippingProvince : "",
+            shippingCity: data.fields.shippingCity ? data.fields.shippingCity : "",
+            shippingPhone: data.fields.shippingPhone ? data.fields.shippingPhone : "",
+            shippingAddress: data.fields.shippingAddress ? data.fields.shippingAddress : "",
+            shippingCustomerName: data.fields.shippingCustomerName ? data.fields.shippingCustomerName : "",
+            remark: data.fields.remark ? data.fields.remark : "",
+            orderWeight: data.fields.orderWeight ? data.fields.orderWeight : 0,
+            orderStatus: data.fields.orderStatus ? data.fields.orderStatus : "",
+            orderAmount: data.fields.orderAmount ? data.fields.orderAmount : 0,
+            productAmount: data.fields.productAmount ? data.fields.productAmount : 0,
+            postageAmount: data.fields.postageAmount ? data.fields.postageAmount : 0,
+            logisticName: data.fields.logisticName ? data.fields.logisticName : "",
+            trackNumber: data.fields.trackNumber ? data.fields.trackNumber : "",
+            createDate: data.fields.createDate ? data.fields.createDate : "",
+            paymentDate: data.fields.paymentDate ? data.fields.paymentDate : ""
+        },
+        record_id: data.record_id
+    }
+}
 
+const getDataNewUpdateCJ = async (arrCJ, arrLB) => {
     for (let i = 0; i < arrCJ.length; i++) {
         let dataCJ = arrCJ[i];
 
         for (let j = 0; j < arrLB.length; j++) {
-            let dataLB = arrLB[j];
+            let dataLB = formatDataGetLarkBase(arrLB[j]);
 
             if (dataLB.fields.orderId == dataCJ.orderId) {
                 let keysToCheck = [
