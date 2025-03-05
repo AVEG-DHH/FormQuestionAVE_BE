@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const getOrderList = require('./src/functions/getOrderList');
+const getProductShopyfiEtsohome = require('./src/functions/getProductShopyfiEtsohome');
 const refreshTokenLark = require('./src/tokens/refreshTokenLark');
 
 const express = require('express');
@@ -112,14 +113,18 @@ async function sendLarkRequestNotComplete(fields) {
 // BASECOST CJ
 const backupDataCJ = async () => {
     console.log("Now time update!");
-
+    console.log("--------CJ DropShippinh--------");
+    // Lấy data từ Apps CJ DropShipping
     await getOrderList();
+
+    console.log("--------Etsohome--------");
+    // Lấy data sản phẩm từ Shopyfi Etsohome
+    await getProductShopyfiEtsohome();
 }
 
 cron.schedule("15 0 * * *", backupDataCJ, {
     timezone: "Asia/Ho_Chi_Minh",
 });
-
 
 // const shopifyAPI = `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/customers.json`;
 // const LARK_API = `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID_CUSTOMERS}/records`;
