@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const getOrderList = require('./src/functions/getOrderList');
 const getProductShopyfiEtsohome = require('./src/functions/getProductShopyfiEtsohome');
+const getCustomerShopyfiEtsohome = require('./src/functions/getCustomerShopyfiEtsohome');
+const getOrderShopyfiEtsohome = require('./src/functions/getOrderShopyfiEtsohome');
 const refreshTokenLark = require('./src/tokens/refreshTokenLark');
 
 const express = require('express');
@@ -56,7 +58,7 @@ app.post("/api/lark-data", async (req, res) => {
 async function sendLarkRequest(fields) {
     try {
         return await axios.post(
-            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID}/records`,
+            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN_TRUONG29102000}/tables/${process.env.LARK_TABLE_ID_COMPLETED_TRUONG29102000}/records`,
             { fields },
             {
                 headers: {
@@ -91,7 +93,7 @@ app.post("/api/lark-data-not-complete", async (req, res) => {
 async function sendLarkRequestNotComplete(fields) {
     try {
         return await axios.post(
-            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN}/tables/${process.env.LARK_TABLE_ID_NOT_COMPLETE}/records`,
+            `https://open.larksuite.com/open-apis/bitable/v1/apps/${process.env.LARK_APP_TOKEN_TRUONG29102000}/tables/${process.env.LARK_TABLE_ID_NOT_COMPLETED_TRUONG29102000}/records`,
             { fields },
             {
                 headers: {
@@ -115,12 +117,16 @@ const backupDataCJ = async () => {
     console.log("Now time update!");
     console.log("--------CJ DropShippinh--------");
     // Lấy data từ Apps CJ DropShipping
-    await getOrderList();
+    // await getOrderList();
 
     console.log("--------Etsohome--------");
     // Lấy data sản phẩm từ Shopyfi Etsohome
-    await getProductShopyfiEtsohome();
-}
+    // await getProductShopyfiEtsohome();
+    // // Lấy data khách hàng từ Shopyfi Etsohome
+    // await getCustomerShopyfiEtsohome();
+    // // Lấy data đơn hàng từ Shopyfi Etsohome
+    // await getOrderShopyfiEtsohome();
+};
 
 cron.schedule("15 0 * * *", backupDataCJ, {
     timezone: "Asia/Ho_Chi_Minh",
