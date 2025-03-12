@@ -5,7 +5,6 @@ const refreshTokenLark = require('./src/tokens/refreshTokenLark');
 const express = require('express');
 const cors = require("cors");
 const axios = require('axios');
-const cron = require("node-cron");
 
 const port = process.env.PORT || 5000;
 
