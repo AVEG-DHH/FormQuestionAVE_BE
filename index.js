@@ -1,7 +1,5 @@
 require("dotenv").config();
 
-const getProductShopyfiEtsohome = require('./src/functions/getProductShopyfiEtsohome');
-const getCustomerShopyfiEtsohome = require('./src/functions/getCustomerShopyfiEtsohome');
 const refreshTokenLark = require('./src/tokens/refreshTokenLark');
 
 const express = require('express');
@@ -109,22 +107,6 @@ async function sendLarkRequestNotComplete(fields) {
         throw error;
     }
 }
-
-// BASECOST CJ
-const backupDataCJ = async () => {
-    console.log("Now time update!");
-
-    console.log("--------Etsohome--------");
-    // Lấy data sản phẩm từ Shopyfi Etsohome
-    // await getProductShopyfiEtsohome();
-    // // Lấy data khách hàng từ Shopyfi Etsohome
-    // await getCustomerShopyfiEtsohome();
-    // // Lấy data đơn hàng từ Shopyfi Etsohome
-};
-
-cron.schedule("15 0 * * *", backupDataCJ, {
-    timezone: "Asia/Ho_Chi_Minh",
-});
 
 // Start server
 app.listen(port, () => {
