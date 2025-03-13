@@ -34,7 +34,7 @@ app.use(cors({
 // Middleware để parse body request thành JSON
 app.use(express.json());
 
-let LARK_ACCESS_TOKEN = "t-g2062ocbLXY5RKU2XQHZLOM453LBBUWZ7KHMQZIR"; // Lưu token toàn cục
+let LARK_ACCESS_TOKEN = "t-g2063d1xE4FTBGJHGSENQDJFP2BHUGR6QUJ5TONM"; // Lưu token toàn cục
 
 // 📌 API proxy để gọi Lark API
 app.post("/api/lark-data", async (req, res) => {
